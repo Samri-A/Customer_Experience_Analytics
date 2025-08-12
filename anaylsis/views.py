@@ -9,8 +9,7 @@ from sentence_transformers import SentenceTransformer
 from anaylsis.scripts.playstore_data_pipeline import data_pipeline
 from transformers import pipeline
 from anaylsis.scripts.rag_utils import rag
-
-classifer =pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+classifier = pipeline("zero-shot-classification", model="valhalla/distilbart-mnli-12-3")
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 
 
@@ -33,7 +32,9 @@ def analytics(request):
     try:
         data = json.loads(request.body)
         app_id = data.get('appid')
-        analytics = data_pipeline(app_id , classifer)
+        analytics = data_pipeline(app_id , classifier)
+        rag_pipeline = rag( model , app_id)
+
         if App.objects.filter(app_id = app_id).exists():
             data = App.objects.filter(app_id = app_id)
             painpoints = data.painpoints
@@ -75,7 +76,6 @@ def analytics(request):
         else:
             df, painpoints, drivers = analytics.main()
             rag_pipe = rag(app_id ,model)
-            rag_pipe.embed_document(df)
             
             theme_counts = df["identified_theme"].value_counts()
             theme_values = theme_counts.values.tolist()
@@ -100,7 +100,7 @@ def analytics(request):
                 ]
             }
             App.objects.create(app_id , csv = df.to_csv(index=False) )
-            
+            rag_pipeline.embed_document(df)
             return JsonResponse({
                 "theme_values": theme_values,
                 "theme_labels": theme_labels,
